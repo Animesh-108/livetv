@@ -66,17 +66,29 @@
         <div class="lg:w-80 w-full flex-shrink-0 bg-secondary-dark p-4 flex flex-col h-full overflow-hidden">
             <h1 class="text-2xl font-bold mb-4 text-accent-blue">IPTV Channels</h1>
 
-            <!-- Search and Filter -->
+            <!-- Search Input -->
             <input type="text" id="search-input" placeholder="Search channels..."
                    class="w-full p-3 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-blue"
                    oninput="handleFilter()">
             
+            <!-- Group/Genre Filter -->
             <select id="group-filter" 
                     class="w-full p-3 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-blue appearance-none"
                     onchange="handleFilter()">
-                <option value="">All Groups</option>
+                <option value="">All Groups (Genre)</option>
                 <!-- Group options will be populated here -->
             </select>
+            
+            <!-- NEW Sort Control -->
+            <select id="sort-by" 
+                    class="w-full p-3 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-blue appearance-none"
+                    onchange="handleFilter()">
+                <option value="title_asc">Sort by Title (A-Z)</option>
+                <option value="title_desc">Sort by Title (Z-A)</option>
+                <option value="group_asc">Sort by Group (A-Z)</option>
+                <option value="group_desc">Sort by Group (Z-A)</option>
+            </select>
+
 
             <!-- Channel List Container -->
             <div id="channel-list" class="flex-grow overflow-y-scroll custom-scrollbar space-y-1">
@@ -120,8 +132,8 @@
         
         // --- Core Application Logic ---
 
-        // UPDATED M3U URL: Using the Free-TV/IPTV list now
-        const M3U_URL = 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8';
+        // UPDATED M3U URL: Using the PiratesTv list now
+        const M3U_URL = 'https://raw.githubusercontent.com/FunctionError/PiratesTv/main/combined_playlist.m3u';
         let allChannels = [];
         let uniqueGroups = new Set();
         let currentChannel = null;
@@ -293,7 +305,7 @@
         };
 
         const populateGroupFilter = () => {
-            groupFilterSelect.innerHTML = '<option value="">All Groups</option>';
+            groupFilterSelect.innerHTML = '<option value="">All Groups (Genre)</option>';
             const sortedGroups = Array.from(uniqueGroups).sort();
             sortedGroups.forEach(group => {
                 const option = document.createElement('option');
@@ -302,12 +314,43 @@
                 groupFilterSelect.appendChild(option);
             });
         };
+        
+        /**
+         * Sorts an array of channels based on the specified criteria.
+         * @param {Array<Object>} channels 
+         * @param {string} criteria - e.g., 'title_asc', 'group_desc'
+         * @returns {Array<Object>} Sorted array of channels.
+         */
+        const sortChannels = (channels, criteria) => {
+            const [field, direction] = criteria.split('_'); // e.g., ['title', 'asc'] or ['group', 'desc']
+            
+            // Use 'title' as fallback field for sorting if 'group' is missing
+            const primaryField = field === 'group' ? 'group' : 'title'; 
+
+            // Sort is done on a copy to ensure stability if the array reference matters elsewhere, 
+            // though in this setup, filteredChannels is already a new array.
+            return channels.sort((a, b) => {
+                const aValue = (a[primaryField] || '').toLowerCase();
+                const bValue = (b[primaryField] || '').toLowerCase();
+                
+                if (aValue < bValue) {
+                    return direction === 'asc' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return direction === 'asc' ? 1 : -1;
+                }
+                return 0; // names are equal
+            });
+        };
+
 
         window.handleFilter = () => {
             const searchTerm = searchInput.value.toLowerCase();
             const selectedGroup = groupFilterSelect.value;
+            const sortCriteria = document.getElementById('sort-by').value;
 
-            const filteredChannels = allChannels.filter(channel => {
+            // 1. Filtering
+            let filteredChannels = allChannels.filter(channel => {
                 const matchesSearch = channel.title.toLowerCase().includes(searchTerm) || 
                                       (channel.group && channel.group.toLowerCase().includes(searchTerm));
                 
@@ -315,6 +358,11 @@
 
                 return matchesSearch && matchesGroup;
             });
+            
+            // 2. Sorting
+            if (sortCriteria) {
+                filteredChannels = sortChannels(filteredChannels, sortCriteria);
+            }
 
             renderChannelList(filteredChannels);
         };
@@ -373,7 +421,12 @@
                 
                 // Final setup
                 populateGroupFilter();
-                renderChannelList(allChannels);
+                
+                // Initial sort to apply default (Title A-Z)
+                const defaultSortCriteria = document.getElementById('sort-by').value;
+                let initialChannels = sortChannels(allChannels, defaultSortCriteria);
+
+                renderChannelList(initialChannels);
                 loadingIndicator.style.display = 'none';
 
                 showMessage(`Successfully loaded ${allChannels.length} channels from new source!`, 'success');
