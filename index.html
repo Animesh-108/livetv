@@ -26,7 +26,8 @@
         .video-container {
             position: relative;
             width: 100%;
-            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            /* 16:9 Aspect Ratio */
+            padding-top: 56.25%; 
             background-color: #000;
         }
 
@@ -60,26 +61,36 @@
 </head>
 <body class="bg-primary-dark text-gray-100 min-h-screen">
 
-    <div id="app" class="flex flex-col lg:flex-row h-screen overflow-hidden">
+    <div id="app" class="relative flex flex-col lg:flex-row h-screen overflow-hidden">
 
-        <!-- Sidebar / Channel List -->
-        <div class="lg:w-80 w-full flex-shrink-0 bg-secondary-dark p-4 flex flex-col h-full overflow-hidden">
-            <h1 class="text-2xl font-bold mb-4 text-accent-blue">IPTV Channels</h1>
+        <!-- Sidebar / Channel List (Mobile: fixed, slides out from left) -->
+        <!-- Hidden on mobile by default using -translate-x-full, visible on large screens with lg:translate-x-0 -->
+        <div id="sidebar" 
+             class="fixed inset-y-0 left-0 z-50 w-64 sm:w-80 lg:w-80 flex-shrink-0 bg-secondary-dark p-4 flex flex-col h-full overflow-hidden 
+                    transition-transform duration-300 transform -translate-x-full lg:static lg:translate-x-0">
+            
+            <h1 class="text-2xl font-bold mb-4 text-accent-blue flex justify-between items-center">
+                IPTV Channels
+                <!-- Close button for mobile -->
+                <button onclick="toggleSidebar()" class="lg:hidden text-gray-400 hover:text-white p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </h1>
 
             <!-- Search Input -->
             <input type="text" id="search-input" placeholder="Search channels..."
-                   class="w-full p-3 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-blue"
+                   class="w-full p-3 mb-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-blue"
                    oninput="handleFilter()">
             
             <!-- Group/Genre Filter -->
             <select id="group-filter" 
-                    class="w-full p-3 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-blue appearance-none"
+                    class="w-full p-3 mb-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-blue appearance-none"
                     onchange="handleFilter()">
                 <option value="">All Groups (Genre)</option>
                 <!-- Group options will be populated here -->
             </select>
             
-            <!-- NEW Sort Control -->
+            <!-- Sort Control -->
             <select id="sort-by" 
                     class="w-full p-3 mb-4 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-blue appearance-none"
                     onchange="handleFilter()">
@@ -97,10 +108,21 @@
             </div>
         </div>
 
+        <!-- Mobile Backdrop (Visible when sidebar is open on small screens) -->
+        <div id="sidebar-backdrop" class="fixed inset-0 bg-black bg-opacity-75 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
         <!-- Main Content / Video Player -->
         <main class="flex-grow flex flex-col p-4 overflow-y-auto">
             
-            <div id="player-status" class="mb-4 p-4 bg-gray-800 rounded-lg shadow-xl">
+            <!-- Mobile Toggle Button (Visible only on small screens) -->
+            <button onclick="toggleSidebar()" id="toggle-sidebar-button" 
+                    class="lg:hidden p-3 mb-4 bg-accent-blue hover:bg-accent-hover rounded-lg font-semibold shadow-xl transition duration-150 flex items-center justify-center space-x-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                <span>View Channels</span>
+            </button>
+
+
+            <div id="player-status" class="mb-4 p-4 bg-gray-800 rounded-xl shadow-xl">
                 <h2 id="current-channel-name" class="text-xl font-semibold text-accent-blue">Select a Channel to Start Streaming</h2>
                 <p id="current-channel-group" class="text-sm text-gray-400">The player uses HLS (m3u8) streams. Compatibility may vary based on the browser.</p>
             </div>
@@ -130,6 +152,27 @@
             }, 8000); // Hide after 8 seconds
         };
         
+        // --- Mobile Sidebar Toggle Logic ---
+        window.toggleSidebar = () => {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            
+            // Check if sidebar is currently hidden (has -translate-x-full)
+            const isHidden = sidebar.classList.contains('-translate-x-full');
+            
+            if (isHidden) {
+                // Show sidebar
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            } else {
+                // Hide sidebar
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+                document.body.style.overflow = 'auto'; // Re-enable background scrolling
+            }
+        };
+
         // --- Core Application Logic ---
 
         // UPDATED M3U URL: Using the PiratesTv list now
@@ -259,6 +302,11 @@
                 el.classList.add('hover:bg-gray-600');
             });
             document.getElementById(`channel-${channel.url.replace(/[^a-zA-Z0-9]/g, '-')}`).classList.add('bg-accent-blue', 'text-white');
+            
+            // Hide sidebar automatically after selecting a channel on mobile
+            if (window.innerWidth < 1024) {
+                 toggleSidebar();
+            }
         };
 
 
@@ -299,6 +347,7 @@
                 const safeId = `channel-${currentChannel.url.replace(/[^a-zA-Z0-9]/g, '-')}`;
                 const currentElement = document.getElementById(safeId);
                 if (currentElement) {
+                    currentElement.classList.remove('hover:bg-gray-600');
                     currentElement.classList.add('bg-accent-blue', 'text-white');
                 }
             }
@@ -327,8 +376,6 @@
             // Use 'title' as fallback field for sorting if 'group' is missing
             const primaryField = field === 'group' ? 'group' : 'title'; 
 
-            // Sort is done on a copy to ensure stability if the array reference matters elsewhere, 
-            // though in this setup, filteredChannels is already a new array.
             return channels.sort((a, b) => {
                 const aValue = (a[primaryField] || '').toLowerCase();
                 const bValue = (b[primaryField] || '').toLowerCase();
