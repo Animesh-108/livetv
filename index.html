@@ -43,6 +43,13 @@
         html {
             font-family: 'Inter', sans-serif;
         }
+        
+        /* FIX FOR MOBILE ROTATION/VIEWPORT JUMPINESS */
+        /* This uses the --vh variable set by JavaScript to stabilize height */
+        #app {
+            height: 100vh; /* Fallback for older browsers */
+            height: calc(var(--vh, 1vh) * 100);
+        }
     </style>
     <script>
         tailwind.config = {
@@ -61,7 +68,8 @@
 </head>
 <body class="bg-primary-dark text-gray-100 min-h-screen">
 
-    <div id="app" class="relative flex flex-col lg:flex-row h-screen overflow-hidden">
+    <!-- Removed h-screen and rely on the custom CSS #app style for stable height -->
+    <div id="app" class="relative flex flex-col lg:flex-row overflow-hidden">
 
         <!-- Sidebar / Channel List (Mobile: fixed, slides out from left) -->
         <!-- Hidden on mobile by default using -translate-x-full, visible on large screens with lg:translate-x-0 -->
@@ -141,6 +149,14 @@
     </div>
 
     <script type="module">
+        // Function to set the custom viewport height (vh) unit for mobile stability
+        const setVh = () => {
+            // First we get the viewport height and we multiply it by 1% to get a value for vh unit
+            let vh = window.innerHeight * 0.01;
+            // Then we set the value in the --vh custom property to the root of the document
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        };
+        
         // Helper to show a message or error to the user
         const showMessage = (message, type = 'error') => {
             const messageBox = document.getElementById('message-box');
@@ -417,6 +433,10 @@
         // --- Initialization and Fetch ---
 
         const initialize = async () => {
+            // Set initial stable vh unit and attach to resize event for mobile rotation fix
+            setVh(); 
+            window.addEventListener('resize', setVh); 
+            
             // Check for HLS.js and dynamically load it if necessary for wider browser support
             if (!isHlsSupported()) {
                 loadingIndicator.textContent = "Loading HLS streaming library...";
